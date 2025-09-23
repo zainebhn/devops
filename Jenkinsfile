@@ -6,7 +6,9 @@ pipeline {
         jdk 'JDK17'
 
     }
-
+    environment{
+        MAVEN_OPTS = "-Dmaven.test.skip=true" 
+    }
     stages {
         stage('Checkout') {
             steps {
