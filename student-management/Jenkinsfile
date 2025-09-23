@@ -2,43 +2,35 @@ pipeline {
     agent any
 
     tools {
-        jdk 'JDK17'        
-        maven 'Maven363'   
+        maven 'Maven 3.6.3'  
+        jdk 'Java 17'        
     }
 
     stages {
-        stage('Start') {
+        stage('Checkout') {
             steps {
-                echo 'Début du pipeline Jenkins - Premier test'
-            }
-        }
-
-        stage('Check Tools') {
-            steps {
-                sh 'java -version'
-                sh 'mvn -version'
-                sh 'git --version'
+                git branch: 'main',
+                    credentialsId: 'cd5fe940-75d1-4257-8b4c-d245de66f89c', // remplace par l’ID de tes credentials
+                    url: 'https://github.com/zainebhn/devops.git'
             }
         }
 
         stage('Build') {
             steps {
-                echo ' Compilation du projet'
-                sh 'mvn clean compile'
+                sh 'mvn clean install -DskipTests'
             }
         }
 
         stage('Test') {
             steps {
-                echo 'Exécution des tests'
                 sh 'mvn test'
             }
         }
-    }
 
-    post {
-        always {
-            echo ' Pipeline terminé'
+        stage('Run') {
+            steps {
+                sh 'mvn spring-boot:run &'
+            }
         }
     }
 }
