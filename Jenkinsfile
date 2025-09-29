@@ -8,6 +8,9 @@ pipeline {
     }
     environment{
         MAVEN_OPTS = "-Dmaven.test.skip=true" 
+        DOCKERHUB_CREDENTIALS = credentials('docker-hub')
+        IMAGE_NAME = "zainebheni/student-management"
+        IMAGE_TAG = "latest"
     }
     stages {
         stage('Checkout') {
@@ -34,11 +37,27 @@ pipeline {
             }
         }
 
-        stage('Run') {
+         stage('Docker Build & Push') {
             steps {
-                dir('student-management') {
-                    sh 'mvn spring-boot:run &'
+                script {
+                    dir('student-management') {
+                        sh """
+                        docker login -u ${DOCKERHUB_CREDENTIALS_USR} -p ${DOCKERHUB_CREDENTIALS_PSW}
+                        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
+                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                        """
+                    }
                 }
+            }
+        }
+
+        stage('Deploy (Run Container)') {
+            steps {
+                sh """
+                docker stop student-management || true
+                docker rm student-management || true
+                docker run -d -p 8080:8080 --name student-management ${IMAGE_NAME}:${IMAGE_TAG}
+                """
             }
         }
     }
