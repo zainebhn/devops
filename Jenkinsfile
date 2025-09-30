@@ -4,14 +4,14 @@ pipeline {
     tools {
         maven 'MAVEN/usr/share/maven'
         jdk 'JDK17'
+    }
 
+    environment {
+        MAVEN_OPTS = "-Dmaven.test.skip=true"
+        DOCKER_IMAGE = "zainebheni/student-management" // ton image dockerhub
+        SONARQUBE_ENV = "sonarqube" // nom du serveur SonarQube configuré
     }
-    environment{
-        MAVEN_OPTS = "-Dmaven.test.skip=true" 
-        DOCKERHUB_CREDENTIALS = credentials('docker-hub')
-        IMAGE_NAME = "zainebheni/student-management"
-        IMAGE_TAG = "latest"
-    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -29,7 +29,7 @@ pipeline {
             }
         }
 
-        stage('Test') {
+        stage('Unit Tests') {
             steps {
                 dir('student-management') {
                     sh 'mvn test'
@@ -37,28 +37,37 @@ pipeline {
             }
         }
 
-         stage('Docker Build & Push') {
+        stage('SonarQube Analysis') {
             steps {
-                script {
-                    dir('student-management') {
+                dir('student-management') {
+                    withSonarQubeEnv('SonarQube') {
+                        sh 'mvn sonar:sonar -Dsonar.projectKey=student-management -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONARQUBE_AUTH_TOKEN'
+                    }
+                }
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                dir('student-management') {
+                    script {
                         sh """
-                        docker login -u ${DOCKERHUB_CREDENTIALS_USR} -p ${DOCKERHUB_CREDENTIALS_PSW}
-                        docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                        docker push ${IMAGE_NAME}:${IMAGE_TAG}
+                            docker build -t $DOCKER_IMAGE:latest .
+                            echo $DOCKER_HUB_PASSWORD | docker login -u $DOCKER_HUB_USERNAME --password-stdin
+                            docker push $DOCKER_IMAGE:latest
                         """
                     }
                 }
             }
         }
 
-        stage('Deploy (Run Container)') {
+        stage('Run App in Docker') {
             steps {
-                sh """
-                docker stop student-management || true
-                docker rm student-management || true
-                docker run -d -p 8080:8080 --name student-management ${IMAGE_NAME}:${IMAGE_TAG}
-                """
+                script {
+                    sh "docker run -d -p 8080:8080 --name student-app $DOCKER_IMAGE:latest || true"
+                }
             }
         }
     }
 }
+
