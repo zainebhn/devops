@@ -42,7 +42,12 @@ pipeline {
                 dir('student-management') {
                     withSonarQubeEnv("${SONARQUBE_ENV}") {
                         withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                            sh 'mvn sonar:sonar -Dsonar.projectKey=student-management -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONAR_TOKEN'
+                            sh '''
+                                mvn sonar:sonar \
+                                  -Dsonar.projectKey=student-management \
+                                  -Dsonar.host.url=http://localhost:9000 \
+                                  -Dsonar.login=$SONAR_TOKEN
+                            '''
                         }
                     }
                 }
@@ -53,10 +58,9 @@ pipeline {
             steps {
                 dir('student-management') {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        // use single-quoted string with $DOCKER_PASS to avoid interpolation in Groovy
                         sh '''
+                            docker login -u $DOCKER_USER --password-stdin <<< "$DOCKER_PASS"
                             docker build -t $DOCKER_USER/student-management:latest .
-                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                             docker push $DOCKER_USER/student-management:latest
                         '''
                     }
@@ -66,11 +70,13 @@ pipeline {
 
         stage('Run App in Docker') {
             steps {
-                script {
-                    sh '''
-                        docker rm -f student-app || true
-                        docker run -d -p 8080:8080 --name student-app $DOCKER_USER/student-management:latest
-                    '''
+                dir('student-management') {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh '''
+                            docker rm -f student-app || true
+                            docker run -d -p 8080:8080 --name student-app $DOCKER_USER/student-management:latest
+                        '''
+                    }
                 }
             }
         }
