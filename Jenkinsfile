@@ -1,4 +1,3 @@
-
 pipeline {
     agent any
 
@@ -8,9 +7,9 @@ pipeline {
     }
 
     environment {
-        MAVEN_OPTS   = "-Dmaven.test.skip=true"
-        DOCKER_IMAGE = "zainebheni/student-management" // ton image DockerHub
-        SONARQUBE_ENV = "sonarqube" // nom du serveur SonarQube configuré dans Jenkins
+        MAVEN_OPTS = "-Dmaven.test.skip=true"
+        DOCKER_IMAGE = "zainebheni/student-management" // DockerHub image
+        SONARQUBE_ENV = "sonarqube" // SonarQube server configured in Jenkins
     }
 
     stages {
@@ -43,12 +42,7 @@ pipeline {
                 dir('student-management') {
                     withSonarQubeEnv("${SONARQUBE_ENV}") {
                         withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                            sh """
-                                mvn sonar:sonar \
-                                  -Dsonar.projectKey=student-management \
-                                  -Dsonar.host.url=http://localhost:9000 \
-                                  -Dsonar.login=$SONAR_TOKEN
-                            """
+                            sh 'mvn sonar:sonar -Dsonar.projectKey=student-management -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONAR_TOKEN'
                         }
                     }
                 }
@@ -59,11 +53,12 @@ pipeline {
             steps {
                 dir('student-management') {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh """
-                            docker build -t $DOCKER_IMAGE:latest .
+                        // use single-quoted string with $DOCKER_PASS to avoid interpolation in Groovy
+                        sh '''
+                            docker build -t $DOCKER_USER/student-management:latest .
                             echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                            docker push $DOCKER_IMAGE:latest
-                        """
+                            docker push $DOCKER_USER/student-management:latest
+                        '''
                     }
                 }
             }
@@ -72,14 +67,12 @@ pipeline {
         stage('Run App in Docker') {
             steps {
                 script {
-                    sh """
+                    sh '''
                         docker rm -f student-app || true
-                        docker run -d -p 8080:8080 --name student-app $DOCKER_IMAGE:latest
-                    """
+                        docker run -d -p 8080:8080 --name student-app $DOCKER_USER/student-management:latest
+                    '''
                 }
             }
         }
     }
 }
-
-
