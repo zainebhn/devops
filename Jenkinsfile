@@ -8,8 +8,8 @@ pipeline {
 
     environment {
         MAVEN_OPTS = "-Dmaven.test.skip=true"
-        DOCKER_IMAGE = "zainebheni/student-management" // DockerHub image
-        SONARQUBE_ENV = "sonarqube" // SonarQube server configured in Jenkins
+        DOCKER_IMAGE = "zainebheni/student-management"
+        SONARQUBE_ENV = "sonarqube"
     }
 
     stages {
@@ -42,12 +42,12 @@ pipeline {
                 dir('student-management') {
                     withSonarQubeEnv("${SONARQUBE_ENV}") {
                         withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                            sh '''
+                            sh """
                                 mvn sonar:sonar \
                                   -Dsonar.projectKey=student-management \
                                   -Dsonar.host.url=http://localhost:9000 \
-                                  -Dsonar.login=$SONAR_TOKEN
-                            '''
+                                  -Dsonar.login=\$SONAR_TOKEN
+                            """
                         }
                     }
                 }
@@ -58,11 +58,11 @@ pipeline {
             steps {
                 dir('student-management') {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh '''
-                            echo "$DOCKER_PASS" | docker login -u $DOCKER_USER --password-stdin
-                            docker build -t $DOCKER_USER/student-management:latest .
-                            docker push $DOCKER_USER/student-management:latest
-                        '''
+                        sh """
+                            echo "\$DOCKER_PASS" | docker login -u \$DOCKER_USER --password-stdin
+                            docker build -t \$DOCKER_USER/student-management:latest .
+                            docker push \$DOCKER_USER/student-management:latest
+                        """
                     }
                 }
             }
@@ -72,10 +72,10 @@ pipeline {
             steps {
                 dir('student-management') {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh '''
+                        sh """
                             docker rm -f student-app || true
-                            docker run -d -p 8080:8080 --name student-app $DOCKER_USER/student-management:latest
-                        '''
+                            docker run -d -p 8080:8080 --name student-app \$DOCKER_USER/student-management:latest
+                        """
                     }
                 }
             }
