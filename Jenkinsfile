@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -7,9 +8,9 @@ pipeline {
     }
 
     environment {
-        MAVEN_OPTS = "-Dmaven.test.skip=true"
-        DOCKER_IMAGE = "zainebheni/student-management" // ton image dockerhub
-        SONARQUBE_ENV = "sonarqube" // nom du serveur SonarQube configuré
+        MAVEN_OPTS   = "-Dmaven.test.skip=true"
+        DOCKER_IMAGE = "zainebheni/student-management" // ton image DockerHub
+        SONARQUBE_ENV = "sonarqube" // nom du serveur SonarQube configuré dans Jenkins
     }
 
     stages {
@@ -40,8 +41,15 @@ pipeline {
         stage('SonarQube Analysis') {
             steps {
                 dir('student-management') {
-                    withSonarQubeEnv('SonarQube') {
-                        sh 'mvn sonar:sonar -Dsonar.projectKey=student-management -Dsonar.host.url=http://localhost:9000 -Dsonar.login=$SONARQUBE_AUTH_TOKEN'
+                    withSonarQubeEnv("${SONARQUBE_ENV}") {
+                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
+                            sh """
+                                mvn sonar:sonar \
+                                  -Dsonar.projectKey=student-management \
+                                  -Dsonar.host.url=http://localhost:9000 \
+                                  -Dsonar.login=$SONAR_TOKEN
+                            """
+                        }
                     }
                 }
             }
@@ -50,10 +58,10 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 dir('student-management') {
-                    script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
                             docker build -t $DOCKER_IMAGE:latest .
-                            echo $DOCKER_HUB_PASSWORD | docker login -u $DOCKER_HUB_USERNAME --password-stdin
+                            echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
                             docker push $DOCKER_IMAGE:latest
                         """
                     }
@@ -64,10 +72,14 @@ pipeline {
         stage('Run App in Docker') {
             steps {
                 script {
-                    sh "docker run -d -p 8080:8080 --name student-app $DOCKER_IMAGE:latest || true"
+                    sh """
+                        docker rm -f student-app || true
+                        docker run -d -p 8080:8080 --name student-app $DOCKER_IMAGE:latest
+                    """
                 }
             }
         }
     }
 }
+
 
