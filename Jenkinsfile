@@ -59,9 +59,9 @@ pipeline {
                 dir('student-management') {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
-                            echo "\$DOCKER_PASS" | docker login -u \$DOCKER_USER --password-stdin
-                            docker build -t \$DOCKER_USER/student-management:latest .
-                            docker push \$DOCKER_USER/student-management:latest
+                            echo \"\$DOCKER_PASS\" | docker login -u \"\$DOCKER_USER\" --password-stdin
+                            docker build -t \"\$DOCKER_USER/student-management:latest\" .
+                            docker push \"\$DOCKER_USER/student-management:latest\"
                         """
                     }
                 }
@@ -74,7 +74,7 @@ pipeline {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
                             docker rm -f student-app || true
-                            docker run -d -p 8080:8080 --name student-app \$DOCKER_USER/student-management:latest
+                            docker run -d -p 8080:8080 --name student-app \"\$DOCKER_USER/student-management:latest\"
                         """
                     }
                 }
