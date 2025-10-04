@@ -58,30 +58,16 @@ pipeline {
             steps {
                 dir('student-management') {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh '''
-                            # Login to Docker Hub
-                            printf "%s" "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        sh """
+                            # Login using direct password parameter
+                            docker login -u '$DOCKER_USER' -p '$DOCKER_PASS'
                             
                             # Build the image
-                            docker build -t "$DOCKER_USER/student-management:latest" .
+                            docker build -t '$DOCKER_USER/student-management:latest' .
                             
-                            # Get image IDs for comparison
-                            NEW_IMAGE_ID=$(docker images -q "$DOCKER_USER/student-management:latest")
-                            
-                            # Try to pull the existing image
-                            docker pull "$DOCKER_USER/student-management:latest" || true
-                            
-                            # Get the existing image ID (if it exists)
-                            EXISTING_IMAGE_ID=$(docker images -q "$DOCKER_USER/student-management:latest" | head -1)
-                            
-                            # Only push if the image is different or doesn't exist remotely
-                            if [ -z "$EXISTING_IMAGE_ID" ] || [ "$NEW_IMAGE_ID" != "$EXISTING_IMAGE_ID" ]; then
-                                echo "New image detected, pushing to Docker Hub..."
-                                docker push "$DOCKER_USER/student-management:latest"
-                            else
-                                echo "No changes detected in the Docker image. Skipping push."
-                            fi
-                        '''
+                            # Push the image
+                            docker push '$DOCKER_USER/student-management:latest'
+                        """
                     }
                 }
             }
