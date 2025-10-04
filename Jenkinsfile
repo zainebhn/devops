@@ -74,7 +74,7 @@ pipeline {
                 dir('student-management') {
                     sh """
                         docker rm -f student-app || true
-                        docker run -d -p 8080:8080 --name student-app zainebheni/student-management:latest
+                        docker run -d -p 8081:8080 --name student-app zainebheni/student-management:latest
                     """
                 }
             }
