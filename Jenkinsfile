@@ -74,6 +74,7 @@ pipeline {
             steps {
                 script {
                     sh """
+                        export KUBECONFIG=/var/lib/jenkins/.kube/config
                         kubectl config use-context minikube
                         kubectl set image deployment/student-app student-app=${DOCKER_IMAGE}:latest --record || true
                         kubectl apply -f k8s/deployment.yaml
