@@ -10,7 +10,7 @@ pipeline {
         MAVEN_OPTS = "-Dmaven.test.skip=true"
         DOCKER_IMAGE = "zainebheni/student-management"
         SONARQUBE_ENV = "sonarqube"
-        KUBE_CONFIG_PATH = "$HOME/.kube/config"
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
     }
 
     stages {
@@ -74,11 +74,54 @@ pipeline {
             steps {
                 script {
                     sh """
-                        export KUBECONFIG=/var/lib/jenkins/.kube/config
+                        # Export kubeconfig pour Jenkins
+                        export KUBECONFIG=${KUBECONFIG}
                         kubectl config use-context minikube
-                        kubectl set image deployment/student-app student-app=${DOCKER_IMAGE}:latest --record || true
-                        kubectl apply -f k8s/deployment.yaml
-                        kubectl apply -f k8s/service.yaml
+
+                        # Créer deployment.yaml à la volée
+                        cat <<EOF > deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: student-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: student-app
+  template:
+    metadata:
+      labels:
+        app: student-app
+    spec:
+      containers:
+      - name: student-app
+        image: ${DOCKER_IMAGE}:latest
+        ports:
+        - containerPort: 8080
+EOF
+
+                        # Créer service.yaml à la volée
+                        cat <<EOF > service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: student-app-service
+spec:
+  type: NodePort
+  selector:
+    app: student-app
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30082
+EOF
+
+                        # Appliquer les fichiers Kubernetes
+                        kubectl apply -f deployment.yaml
+                        kubectl apply -f service.yaml
+
+                        # Vérifier les pods
                         kubectl get pods -o wide
                     """
                 }
