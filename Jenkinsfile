@@ -10,9 +10,11 @@ pipeline {
         MAVEN_OPTS = "-Dmaven.test.skip=true"
         DOCKER_IMAGE = "zainebheni/student-management"
         SONARQUBE_ENV = "sonarqube"
+        KUBE_CONFIG_PATH = "$HOME/.kube/config"
     }
 
     stages {
+
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -59,13 +61,8 @@ pipeline {
                 dir('student-management') {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
-                            # Login using direct password parameter
                             docker login -u '$DOCKER_USER' -p '$DOCKER_PASS'
-                            
-                            # Build the image
                             docker build -t '$DOCKER_USER/student-management:latest' .
-                            
-                            # Push the image
                             docker push '$DOCKER_USER/student-management:latest'
                         """
                     }
@@ -73,13 +70,15 @@ pipeline {
             }
         }
 
-        stage('Run App in Docker') {
+        stage('Deploy to Minikube') {
             steps {
-                dir('student-management') {
+                script {
                     sh """
-                        docker rm -f student-app || true
-                        docker run -d -p 8082:8080 --name student-app zainebheni/student-management:latest
-                        echo "Application is running on http://localhost:8082"
+                        kubectl config use-context minikube
+                        kubectl set image deployment/student-app student-app=${DOCKER_IMAGE}:latest --record || true
+                        kubectl apply -f k8s/deployment.yaml
+                        kubectl apply -f k8s/service.yaml
+                        kubectl get pods -o wide
                     """
                 }
             }
