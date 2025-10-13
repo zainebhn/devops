@@ -76,7 +76,7 @@ pipeline {
                     sh """
                         export KUBECONFIG=${KUBECONFIG}
                         kubectl config use-context minikube
-                        
+
                         # Appliquer les fichiers YAML depuis la racine
                         kubectl apply -f deployment.yaml
                         kubectl apply -f service.yaml
