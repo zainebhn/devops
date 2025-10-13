@@ -74,54 +74,14 @@ pipeline {
             steps {
                 script {
                     sh """
-                        # Export kubeconfig pour Jenkins
                         export KUBECONFIG=${KUBECONFIG}
                         kubectl config use-context minikube
-
-                        # Créer deployment.yaml à la volée
-                        cat <<EOF > deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: student-app
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: student-app
-  template:
-    metadata:
-      labels:
-        app: student-app
-    spec:
-      containers:
-      - name: student-app
-        image: ${DOCKER_IMAGE}:latest
-        ports:
-        - containerPort: 8080
-EOF
-
-                        # Créer service.yaml à la volée
-                        cat <<EOF > service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: student-app-service
-spec:
-  type: NodePort
-  selector:
-    app: student-app
-  ports:
-  - port: 8080
-    targetPort: 8080
-    nodePort: 30082
-EOF
-
-                        # Appliquer les fichiers Kubernetes
+                        
+                        # Appliquer les fichiers YAML depuis la racine
                         kubectl apply -f deployment.yaml
                         kubectl apply -f service.yaml
 
-                        # Vérifier les pods
+                        # Vérifier le déploiement
                         kubectl get pods -o wide
                     """
                 }
