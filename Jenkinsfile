@@ -73,23 +73,49 @@ pipeline {
             }
         }
 
-        stage('Deploy to Minikube') {
+        stage('Deploy Database to Minikube') {
+            steps {
+                script {
+                    sh """
+                        export KUBECONFIG=${KUBECONFIG}
+                        kubectl config use-context ${MINIKUBE_CONTEXT}
+                        
+                        # Create namespace if not exists
+                        kubectl create namespace devops --dry-run=client -o yaml | kubectl apply -f -
+                        
+                        # Deploy MySQL first
+                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/mysql-deployment.yaml -n devops
+                        
+                        # Wait for MySQL to be ready
+                        kubectl wait --for=condition=ready pod -l app=mysql -n devops --timeout=300s
+                    """
+                }
+            }
+        }
+
+        stage('Deploy Application to Minikube') {
             steps {
                 script {
                     sh """
                         export KUBECONFIG=${KUBECONFIG}
                         kubectl config use-context ${MINIKUBE_CONTEXT}
 
-                        # Appliquer les fichiers YAML en ignorant TLS et OpenAPI validation
-                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml
-                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml
+                        # Deploy application
+                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml -n devops
+                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml -n devops
 
-                        # Vérifier le déploiement
+                        # Wait for application to be ready
+                        kubectl wait --for=condition=ready pod -l app=student-app -n devops --timeout=300s
+
+                        # Verification
                         echo 'Liste des pods:'
-                        kubectl get pods -o wide --insecure-skip-tls-verify=true
+                        kubectl get pods -n devops -o wide
 
                         echo 'Liste des services:'
-                        kubectl get svc student-app-service --insecure-skip-tls-verify=true
+                        kubectl get svc -n devops
+
+                        echo 'Application URL:'
+                        minikube service student-app-service -n devops --url
                     """
                 }
             }
@@ -99,6 +125,16 @@ pipeline {
     post {
         always {
             echo "Pipeline finished"
+        }
+        success {
+            script {
+                sh """
+                    export KUBECONFIG=${KUBECONFIG}
+                    kubectl config use-context ${MINIKUBE_CONTEXT}
+                    APP_URL=\$(minikube service student-app-service -n devops --url)
+                    echo "Application deployed successfully at: \${APP_URL}"
+                """
+            }
         }
     }
 }
