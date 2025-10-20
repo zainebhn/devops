@@ -80,9 +80,9 @@ pipeline {
                         export KUBECONFIG=${KUBECONFIG}
                         kubectl config use-context ${MINIKUBE_CONTEXT}
 
-                        # Appliquer les fichiers YAML depuis la racine
-                        kubectl apply -f deployment.yaml
-                        kubectl apply -f service.yaml
+                        # Déployer les fichiers YAML directement depuis GitHub
+                        kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml
+                        kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml
 
                         # Vérifier le déploiement
                         kubectl get pods -o wide
