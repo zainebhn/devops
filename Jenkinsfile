@@ -80,13 +80,16 @@ pipeline {
                         export KUBECONFIG=${KUBECONFIG}
                         kubectl config use-context ${MINIKUBE_CONTEXT}
 
-                        # Déployer les fichiers YAML directement depuis GitHub
-                        kubectl apply --insecure-skip-tls-verify=true  -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml
-                        kubectl apply --insecure-skip-tls-verify=true  -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml
+                        # Déployer les fichiers YAML depuis GitHub en ignorant le TLS
+                        kubectl apply --insecure-skip-tls-verify=true -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml
+                        kubectl apply --insecure-skip-tls-verify=true -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml
 
                         # Vérifier le déploiement
-                        kubectl get pods -o wide
-                        kubectl get svc student-app-service
+                        echo 'Liste des pods:'
+                        kubectl get pods -o wide --insecure-skip-tls-verify=true
+
+                        echo 'Liste des services:'
+                        kubectl get svc student-app-service --insecure-skip-tls-verify=true
                     """
                 }
             }
