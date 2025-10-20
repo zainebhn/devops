@@ -16,4 +16,12 @@ spec:
       - name: student-app
         image: zainebheni/student-management:latest
         ports:
-        - containerPort: 8080
+        - containerPort: 8089
+        # volumeMounts optionnel pour logs
+        # volumeMounts:
+        # - name: student-app-logs
+        #   mountPath: /opt/student-app/logs
+      # volumes optionnel pour logs
+      # volumes:
+      # - name: student-app-logs
+      #   emptyDir: {}
