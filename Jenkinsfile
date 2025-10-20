@@ -81,8 +81,8 @@ pipeline {
                         kubectl config use-context ${MINIKUBE_CONTEXT}
 
                         # Déployer les fichiers YAML directement depuis GitHub
-                        kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml
-                        kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml
+                        kubectl apply --insecure-skip-tls-verify=true  -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml
+                        kubectl apply --insecure-skip-tls-verify=true  -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml
 
                         # Vérifier le déploiement
                         kubectl get pods -o wide
