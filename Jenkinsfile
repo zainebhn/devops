@@ -11,6 +11,9 @@ pipeline {
         DOCKER_IMAGE = "zainebheni/student-management"
         SONARQUBE_ENV = "sonarqube"
         KUBECONFIG = "/var/lib/jenkins/.kube/config"
+        MINIKUBE_CONTEXT = "minikube"
+        NODE_PORT = "30081"
+        APP_PORT = "8089"
     }
 
     stages {
@@ -75,7 +78,7 @@ pipeline {
                 script {
                     sh """
                         export KUBECONFIG=${KUBECONFIG}
-                        kubectl config use-context minikube
+                        kubectl config use-context ${MINIKUBE_CONTEXT}
 
                         # Appliquer les fichiers YAML depuis la racine
                         kubectl apply -f deployment.yaml
@@ -83,9 +86,16 @@ pipeline {
 
                         # Vérifier le déploiement
                         kubectl get pods -o wide
+                        kubectl get svc student-app-service
                     """
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            echo "Pipeline finished"
         }
     }
 }
