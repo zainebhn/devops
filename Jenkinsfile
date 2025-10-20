@@ -80,9 +80,9 @@ pipeline {
                         export KUBECONFIG=${KUBECONFIG}
                         kubectl config use-context ${MINIKUBE_CONTEXT}
 
-                        # Déployer les fichiers YAML depuis GitHub en ignorant le TLS
-                        kubectl apply --insecure-skip-tls-verify=true -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml
-                        kubectl apply --insecure-skip-tls-verify=true -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml
+                        # Appliquer les fichiers YAML en ignorant TLS et OpenAPI validation
+                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml
+                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml
 
                         # Vérifier le déploiement
                         echo 'Liste des pods:'
