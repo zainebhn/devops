@@ -7,11 +7,10 @@ pipeline {
         KUBECONFIG = "/var/lib/jenkins/.kube/config"
         MINIKUBE_CONTEXT = "minikube"
         NODE_PORT = "30081"
-        APP_PORT = "8089"          
+        APP_PORT = "8089"
     }
 
     stages {
-
         stage('Checkout') {
             steps {
                 git branch: 'main',
@@ -19,6 +18,7 @@ pipeline {
                     url: 'https://github.com/zainebhn/devops.git'
             }
         }
+
         stage('Build') {
             steps {
                 dir('student-management') {
@@ -40,7 +40,6 @@ pipeline {
             }
         }
 
-        /* ---- SonarQube (re-using colleague pattern) ---- */
         stage('SonarQube Analysis') {
             environment {
                 SONAR_TOKEN = credentials('sonarqube-token')
@@ -56,9 +55,10 @@ pipeline {
                 }
             }
         }
+
         stage('Docker Build & Push') {
             environment {
-                DOCKERHUB = credentials('docker-hub')   
+                DOCKERHUB = credentials('docker-hub')
             }
             steps {
                 dir('student-management') {
@@ -102,8 +102,6 @@ pipeline {
                         kubectl get pods -n devops -o wide
                         echo 'Services:'
                         kubectl get svc -n devops
-                        echo 'URL:'
-                        minikube service student-app-service -n devops --url
                     """
                 }
             }
@@ -116,12 +114,10 @@ pipeline {
         }
         success {
             script {
-                sh """
-                    export KUBECONFIG=${KUBECONFIG}
-                    kubectl config use-context ${MINIKUBE_CONTEXT}
-                    APP_URL=\$(minikube service student-app-service -n devops --url)
-                    echo "Application deployed successfully at: \${APP_URL}"
-                """
+                sh '''
+                    APP_IP=$(minikube ip)
+                    echo "Application deployed successfully at: http://${APP_IP}:30081"
+                '''
             }
         }
     }
