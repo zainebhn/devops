@@ -1,12 +1,5 @@
-
 pipeline {
     agent any
-
-    tools {
-        maven 'MAVEN/usr/share/maven'
-        jdk 'JDK17'
-    }
-
     environment {
         MAVEN_OPTS = "-Dmaven.test.skip=true"
         DOCKER_IMAGE = "zainebheni/student-management"
@@ -14,7 +7,7 @@ pipeline {
         KUBECONFIG = "/var/lib/jenkins/.kube/config"
         MINIKUBE_CONTEXT = "minikube"
         NODE_PORT = "30081"
-        APP_PORT = "8089"
+        APP_PORT = "8089"          
     }
 
     stages {
@@ -26,7 +19,6 @@ pipeline {
                     url: 'https://github.com/zainebhn/devops.git'
             }
         }
-
         stage('Build') {
             steps {
                 dir('student-management') {
@@ -41,35 +33,40 @@ pipeline {
                     sh 'mvn test'
                 }
             }
-        }
-
-        stage('SonarQube Analysis') {
-            steps {
-                dir('student-management') {
-                    withSonarQubeEnv("${SONARQUBE_ENV}") {
-                        withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                            sh """
-                                mvn sonar:sonar \
-                                  -Dsonar.projectKey=student-management \
-                                  -Dsonar.host.url=http://localhost:9000 \
-                                  -Dsonar.login=\$SONAR_TOKEN
-                            """
-                        }
-                    }
+            post {
+                always {
+                    junit 'student-management/target/surefire-reports/*.xml'
                 }
             }
         }
 
-        stage('Docker Build & Push') {
+        /* ---- SonarQube (re-using colleague pattern) ---- */
+        stage('SonarQube Analysis') {
+            environment {
+                SONAR_TOKEN = credentials('sonarqube-token')
+            }
             steps {
                 dir('student-management') {
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh """
-                            docker login -u '$DOCKER_USER' -p '$DOCKER_PASS'
-                            docker build -t '$DOCKER_USER/student-management:latest' .
-                            docker push '$DOCKER_USER/student-management:latest'
-                        """
-                    }
+                    sh """
+                        mvn sonar:sonar \
+                          -Dsonar.projectKey=student-management \
+                          -Dsonar.host.url=http://localhost:9000 \
+                          -Dsonar.login=\${SONAR_TOKEN}
+                    """
+                }
+            }
+        }
+        stage('Docker Build & Push') {
+            environment {
+                DOCKERHUB = credentials('docker-hub')   
+            }
+            steps {
+                dir('student-management') {
+                    sh """
+                        docker login -u \${DOCKERHUB_USR} -p \${DOCKERHUB_PSW}
+                        docker build -t ${DOCKER_IMAGE}:latest .
+                        docker push ${DOCKER_IMAGE}:latest
+                    """
                 }
             }
         }
@@ -80,14 +77,9 @@ pipeline {
                     sh """
                         export KUBECONFIG=${KUBECONFIG}
                         kubectl config use-context ${MINIKUBE_CONTEXT}
-                        
-                        # Create namespace if not exists
+
                         kubectl create namespace devops --dry-run=client -o yaml | kubectl apply -f -
-                        
-                        # Deploy MySQL first
-                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/mysql-deployment.yaml -n devops
-                        
-                        # Wait for MySQL to be ready
+                        kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/mysql-deployment.yaml -n devops
                         kubectl wait --for=condition=ready pod -l app=mysql -n devops --timeout=300s
                     """
                 }
@@ -101,21 +93,16 @@ pipeline {
                         export KUBECONFIG=${KUBECONFIG}
                         kubectl config use-context ${MINIKUBE_CONTEXT}
 
-                        # Deploy application
-                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml -n devops
-                        kubectl apply --insecure-skip-tls-verify=true --validate=false -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml -n devops
+                        kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml -n devops
+                        kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml -n devops
 
-                        # Wait for application to be ready
                         kubectl wait --for=condition=ready pod -l app=student-app -n devops --timeout=300s
 
-                        # Verification
-                        echo 'Liste des pods:'
+                        echo 'Pods:'
                         kubectl get pods -n devops -o wide
-
-                        echo 'Liste des services:'
+                        echo 'Services:'
                         kubectl get svc -n devops
-
-                        echo 'Application URL:'
+                        echo 'URL:'
                         minikube service student-app-service -n devops --url
                     """
                 }
@@ -125,7 +112,7 @@ pipeline {
 
     post {
         always {
-            echo "Pipeline finished"
+            echo 'Pipeline finished'
         }
         success {
             script {
