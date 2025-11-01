@@ -3,11 +3,7 @@ pipeline {
     environment {
         MAVEN_OPTS = "-Dmaven.test.skip=true"
         DOCKER_IMAGE = "zainebheni/student-management"
-        SONARQUBE_ENV = "sonarqube"
-        KUBECONFIG = "/var/lib/jenkins/.kube/config"
-        MINIKUBE_CONTEXT = "minikube"
-        NODE_PORT = "30081"
-        APP_PORT = "8089"
+        KUBECONFIG   = "/var/lib/jenkins/.kube/config"
     }
 
     stages {
@@ -62,47 +58,31 @@ pipeline {
             }
             steps {
                 dir('student-management') {
-                    sh """
-                        docker login -u \${DOCKERHUB_USR} -p \${DOCKERHUB_PSW}
+                    sh '''
+                        docker login -u $DOCKERHUB_USR -p $DOCKERHUB_PSW
                         docker build -t ${DOCKER_IMAGE}:latest .
                         docker push ${DOCKER_IMAGE}:latest
-                    """
+                    '''
                 }
             }
         }
 
-        stage('Deploy Database to Minikube') {
+        stage('Deploy to Minikube') {
             steps {
                 script {
-                    sh """
-                        export KUBECONFIG=${KUBECONFIG}
-                        kubectl config use-context ${MINIKUBE_CONTEXT}
-
+                    sh '''
+                        kubectl config use-context minikube
                         kubectl create namespace devops --dry-run=client -o yaml | kubectl apply -f -
+
+                        # MySQL
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/mysql-deployment.yaml -n devops
                         kubectl wait --for=condition=ready pod -l app=mysql -n devops --timeout=300s
-                    """
-                }
-            }
-        }
 
-        stage('Deploy Application to Minikube') {
-            steps {
-                script {
-                    sh """
-                        export KUBECONFIG=${KUBECONFIG}
-                        kubectl config use-context ${MINIKUBE_CONTEXT}
-
+                        # Application
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml -n devops
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml -n devops
-
                         kubectl wait --for=condition=ready pod -l app=student-app -n devops --timeout=300s
-
-                        echo 'Pods:'
-                        kubectl get pods -n devops -o wide
-                        echo 'Services:'
-                        kubectl get svc -n devops
-                    """
+                    '''
                 }
             }
         }
@@ -113,12 +93,7 @@ pipeline {
             echo 'Pipeline finished'
         }
         success {
-            script {
-                sh '''
-                    APP_IP=$(minikube ip)
-                    echo "Application deployed successfully at: http://${APP_IP}:30081"
-                '''
-            }
+            sh 'echo "App: http://$(minikube ip):30081"'
         }
     }
 }
