@@ -1,9 +1,9 @@
 pipeline {
     agent any
     environment {
-        MAVEN_OPTS = "-Dmaven.test.skip=true"
-        DOCKER_IMAGE = "zainebheni/student-management"
-        KUBECONFIG   = "/var/lib/jenkins/.kube/config"
+        MAVEN_OPTS     = "-Dmaven.test.skip=true"
+        DOCKER_IMAGE   = "zainebheni/student-management"
+        KUBECONFIG     = "/var/lib/jenkins/.kube/config"
     }
 
     stages {
@@ -91,6 +91,7 @@ pipeline {
             echo 'Pipeline finished'
         }
         success {
-            sh 'echo "App: http://$(minikube ip):30081"'
+            sh 'echo "Application: http://$(minikube ip):30081"'
         }
     }
+}
