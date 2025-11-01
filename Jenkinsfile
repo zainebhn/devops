@@ -67,26 +67,19 @@ pipeline {
             }
         }
 
-                stage('Deploy to Minikube') {
+        stage('Deploy to Minikube') {
             steps {
                 script {
                     sh '''
                         kubectl config use-context minikube
                         kubectl create namespace devops --dry-run=client -o yaml | kubectl apply -f -
 
-                        # MySQL
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/mysql-deployment.yaml -n devops
                         kubectl wait --for=condition=ready pod -l app=mysql -n devops --timeout=300s
 
-                        # Application
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml -n devops
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml -n devops
                         kubectl wait --for=condition=ready pod -l app=student-app -n devops --timeout=300s
-
-                        echo "Pods:"
-                        kubectl get pods -n devops
-                        echo "Services:"
-                        kubectl get svc -n devops
                     '''
                 }
             }
