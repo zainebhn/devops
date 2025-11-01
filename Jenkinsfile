@@ -67,7 +67,7 @@ pipeline {
             }
         }
 
-        stage('Deploy to Minikube') {
+                stage('Deploy to Minikube') {
             steps {
                 script {
                     sh '''
@@ -82,6 +82,11 @@ pipeline {
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml -n devops
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml -n devops
                         kubectl wait --for=condition=ready pod -l app=student-app -n devops --timeout=300s
+
+                        echo "Pods:"
+                        kubectl get pods -n devops
+                        echo "Services:"
+                        kubectl get svc -n devops
                     '''
                 }
             }
@@ -96,4 +101,3 @@ pipeline {
             sh 'echo "App: http://$(minikube ip):30081"'
         }
     }
-}
