@@ -1,9 +1,11 @@
 pipeline {
     agent any
+
     environment {
-        MAVEN_OPTS     = "-Dmaven.test.skip=true"
-        DOCKER_IMAGE   = "zainebheni/student-management"
-        KUBECONFIG     = "/var/lib/jenkins/.kube/config"
+        MAVEN_OPTS = "-Xmx1024m"
+        DOCKER_IMAGE = "zainebheni/student-management"
+        DOCKER_TAG = "${env.BUILD_NUMBER}"
+        KUBECONFIG = "/var/lib/jenkins/.kube/config"
     }
 
     stages {
@@ -18,7 +20,7 @@ pipeline {
         stage('Build') {
             steps {
                 dir('student-management') {
-                    sh 'mvn clean install -DskipTests'
+                    sh 'mvn clean compile -DskipTests'
                 }
             }
         }
@@ -52,17 +54,28 @@ pipeline {
             }
         }
 
+        stage('Package') {
+            steps {
+                dir('student-management') {
+                    sh 'mvn package -DskipTests'
+                }
+            }
+        }
+
         stage('Docker Build & Push') {
             environment {
                 DOCKERHUB = credentials('docker-hub')
             }
             steps {
                 dir('student-management') {
-                    sh '''
-                        docker login -u $DOCKERHUB_USR -p $DOCKERHUB_PSW
-                        docker build -t ${DOCKER_IMAGE}:latest .
+                    sh """
+                        docker login -u \$DOCKERHUB_USR -p \$DOCKERHUB_PSW
+                        docker build -t ${DOCKER_IMAGE}:${DOCKER_TAG} .
+                        docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
+                        docker push ${DOCKER_IMAGE}:${DOCKER_TAG}
                         docker push ${DOCKER_IMAGE}:latest
-                    '''
+                        docker logout
+                    """
                 }
             }
         }
@@ -70,28 +83,48 @@ pipeline {
         stage('Deploy to Minikube') {
             steps {
                 script {
+                    // Vérifie que Minikube est démarré
                     sh '''
-                        kubectl config use-context minikube
-                        kubectl create namespace devops --dry-run=client -o yaml | kubectl apply -f -
+                        minikube status || (echo "❌ Minikube not running" && exit 1)
+                        kubectl cluster-info
+                    '''
 
+                    // Applique les manifestes (depuis ton repo)
+                    sh '''
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/mysql-deployment.yaml -n devops
                         kubectl wait --for=condition=ready pod -l app=mysql -n devops --timeout=300s
 
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml -n devops
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml -n devops
-                        kubectl wait --for=condition=ready pod -l app=student-app -n devops --timeout=300s
+                        kubectl set image deployment/student-app student-app=${DOCKER_IMAGE}:${DOCKER_TAG} -n devops
+                        kubectl rollout status deployment/student-app -n devops --timeout=300s
                     '''
                 }
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                    kubectl get pods -n devops
+                    kubectl get svc -n devops
+                '''
             }
         }
     }
 
     post {
-        always {
-            echo 'Pipeline finished'
-        }
         success {
-            sh 'echo "Application: http://$(minikube ip):30081"'
+            script {
+                def ip = sh(script: 'minikube ip', returnStdout: true).trim()
+                echo "✅ Application disponible à : http://${ip}:30081"
+            }
+        }
+        failure {
+            echo '❌ Pipeline échoué'
+        }
+        always {
+            cleanWs()
         }
     }
 }
