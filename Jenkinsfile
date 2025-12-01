@@ -28,7 +28,28 @@ pipeline {
         stage('Unit Tests') {
             steps {
                 dir('student-management') {
-                    sh 'mvn test'
+                    script {
+                        sh 'docker rm -f mysql-test-container || true'
+                        sh '''
+                            docker run -d --rm --name mysql-test-container \
+                                -e MYSQL_ROOT_PASSWORD=root \
+                                -e MYSQL_DATABASE=studentdb \
+                                -p 3307:3306 mysql:8.0
+                        '''
+                        sh '''
+                            until docker exec mysql-test-container mysqladmin ping -h localhost -uroot -proot --silent; do
+                                sleep 2
+                            done
+                        '''
+                        sh '''
+                            mvn test \
+                                -Dspring.profiles.active=test \
+                                -Dspring.datasource.url=jdbc:mysql://localhost:3307/studentdb?createDatabaseIfNotExist=true \
+                                -Dspring.datasource.username=root \
+                                -Dspring.datasource.password=root
+                        '''
+                        sh 'docker rm -f mysql-test-container || true'
+                    }
                 }
             }
             post {
@@ -83,19 +104,17 @@ pipeline {
         stage('Deploy to Minikube') {
             steps {
                 script {
-                    // Vérifie que Minikube est démarré
                     sh '''
                         minikube status || (echo "❌ Minikube not running" && exit 1)
-                        kubectl cluster-info
-                    '''
+                        kubectl config use-context minikube
+                        kubectl create namespace devops --dry-run=client -o yaml | kubectl apply -f -
 
-                    // Applique les manifestes (depuis ton repo)
-                    sh '''
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/mysql-deployment.yaml -n devops
                         kubectl wait --for=condition=ready pod -l app=mysql -n devops --timeout=300s
 
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/deployment.yaml -n devops
                         kubectl apply -f https://raw.githubusercontent.com/zainebhn/devops/main/service.yaml -n devops
+
                         kubectl set image deployment/student-app student-app=${DOCKER_IMAGE}:${DOCKER_TAG} -n devops
                         kubectl rollout status deployment/student-app -n devops --timeout=300s
                     '''
