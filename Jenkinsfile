@@ -17,6 +17,11 @@ pipeline {
             }
         }
 
+        stage('Debug Dockerfile') {
+            steps {
+               sh 'pwd && ls -la Dockerfile && head -3 Dockerfile'
+               }
+           }
         stage('Build') {
             steps {
                 dir('student-management') {
